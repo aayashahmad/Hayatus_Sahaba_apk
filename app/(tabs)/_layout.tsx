@@ -1,50 +1,48 @@
 import { Tabs } from "expo-router";
-import { Text, View } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { C } from "../../constants/theme";
 
-const C = { bg: "#16302a", panel: "#1d3a32", line: "#2c4f45", gold: "#c9a961", muted: "#a9b8ae" };
+type IconName = keyof typeof Ionicons.glyphMap;
 
-function TabIcon({ icon, label, focused }: { icon: string; label: string; focused: boolean }) {
-  return (
-    <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 6 }}>
-      <Text style={{ fontSize: 20, marginBottom: 2 }}>{icon}</Text>
-      <Text style={{ fontSize: 10, color: focused ? C.gold : C.muted, fontWeight: focused ? "600" : "400" }}>
-        {label}
-      </Text>
+function icon(active: IconName, inactive: IconName) {
+  return ({ focused, color }: { focused: boolean; color: string }) => (
+    <View style={[styles.iconWrap, focused && styles.iconWrapOn]}>
+      <Ionicons name={focused ? active : inactive} size={22} color={color} />
     </View>
   );
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarActiveTintColor: C.gold,
+        tabBarInactiveTintColor: C.muted,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
         tabBarStyle: {
-          backgroundColor: C.panel,
+          backgroundColor: C.panelDeep,
           borderTopColor: C.line,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 64 + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: insets.bottom + 6,
         },
+        sceneStyle: { backgroundColor: C.bg },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📖" label="Read" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="bookmarks"
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🔖" label="Bookmarks" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="downloads"
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⬇️" label="Downloads" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⚙️" label="Settings" focused={focused} /> }}
-      />
+      <Tabs.Screen name="index"     options={{ title: "Read",      tabBarIcon: icon("book", "book-outline") }} />
+      <Tabs.Screen name="bookmarks" options={{ title: "Bookmarks", tabBarIcon: icon("bookmark", "bookmark-outline") }} />
+      <Tabs.Screen name="downloads" options={{ title: "Offline",   tabBarIcon: icon("cloud-download", "cloud-download-outline") }} />
+      <Tabs.Screen name="settings"  options={{ title: "Settings",  tabBarIcon: icon("settings", "settings-outline") }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap:   { width: 48, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  iconWrapOn: { backgroundColor: C.goldSoft },
+});

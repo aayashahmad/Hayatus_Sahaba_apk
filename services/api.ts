@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://hayatus-sahaba-backend-1.onrender.com";
 const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? "https://hayatus-sahaba.vercel.app";
 
-async function authHeader() {
+async function authHeader(): Promise<Record<string, string>> {
   const token = await AsyncStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

@@ -1,66 +1,64 @@
-import { useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
-import { useAuth } from "../../store/auth";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ScreenHeader } from "../../components/ScreenHeader";
+import { C } from "../../constants/theme";
+
+type RowProps = { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; onPress?: () => void };
+
+function Row({ icon, label, value, onPress }: RowProps) {
+  return (
+    <TouchableOpacity style={styles.row} onPress={onPress} disabled={!onPress} activeOpacity={0.7}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={18} color={C.gold} />
+      </View>
+      <Text style={styles.rowLabel}>{label}</Text>
+      {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+      {onPress ? <Ionicons name="chevron-forward" size={16} color={C.muted} /> : null}
+    </TouchableOpacity>
+  );
+}
 
 export default function SettingsScreen() {
-  const { token, setToken, loadToken } = useAuth();
-
-  useEffect(() => {
-    loadToken();
-  }, []);
-
-  const logout = async () => {
-    await setToken(null);
-    Alert.alert("Signed out");
-  };
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Settings</Text>
-
-      {token ? (
-        <>
-          <Text style={styles.status}>✓ Signed in</Text>
-          <TouchableOpacity style={[styles.btn, styles.logout]} onPress={logout}>
-            <Text style={styles.btnText}>Sign Out</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          <Text style={styles.hint}>
-            Sign in with Google or Apple to sync bookmarks and reading progress across devices.
-          </Text>
-          <View style={styles.note}>
-            <Text style={styles.noteText}>
-              Google & Apple sign-in will be available in the full app build (APK/IPA).
-            </Text>
+    <View style={styles.root}>
+      <ScreenHeader title="Settings" />
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 18 }}>
+        <View>
+          <Text style={styles.section}>About the book</Text>
+          <View style={styles.group}>
+            <Row icon="book-outline" label="Hayatus Sahaba" value="3 volumes" />
+            <View style={styles.sep} />
+            <Row icon="person-outline" label="Author" value="M. Yusuf Kandhlawi (Rah)" />
+            <View style={styles.sep} />
+            <Row icon="globe-outline" label="Read on the web" onPress={() => Linking.openURL("https://hayatus-sahaba.vercel.app")} />
           </View>
-        </>
-      )}
+        </View>
 
-      <View style={styles.info}>
-        <Text style={styles.infoLabel}>Backend</Text>
-        <Text style={styles.infoValue}>Render.com</Text>
-        <Text style={styles.infoLabel}>Text</Text>
-        <Text style={styles.infoValue}>Vercel CDN</Text>
-        <Text style={styles.infoLabel}>Version</Text>
-        <Text style={styles.infoValue}>1.0.0</Text>
-      </View>
+        <View>
+          <Text style={styles.section}>Account</Text>
+          <View style={styles.group}>
+            <Row icon="cloud-outline" label="Sync across devices" value="Coming soon" />
+          </View>
+        </View>
+
+        <View>
+          <Text style={styles.section}>App</Text>
+          <View style={styles.group}>
+            <Row icon="information-circle-outline" label="Version" value="1.0.0" />
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a0a00", padding: 24 },
-  title:     { color: "#c8a96e", fontSize: 24, fontWeight: "bold", marginBottom: 32, textAlign: "center", marginTop: 40 },
-  hint:      { color: "#a08060", fontSize: 14, textAlign: "center", marginBottom: 20, lineHeight: 22 },
-  status:    { color: "#c8a96e", fontSize: 16, marginBottom: 24, textAlign: "center" },
-  btn:       { backgroundColor: "#c8a96e", paddingVertical: 14, borderRadius: 10, marginBottom: 16 },
-  logout:    { backgroundColor: "#3a2000" },
-  btnText:   { color: "#1a0a00", fontWeight: "bold", textAlign: "center", fontSize: 16 },
-  note:      { backgroundColor: "#2a1500", borderRadius: 10, padding: 16, marginBottom: 32 },
-  noteText:  { color: "#a08060", fontSize: 13, textAlign: "center", lineHeight: 20 },
-  info:      { backgroundColor: "#2a1500", borderRadius: 10, padding: 16, gap: 8 },
-  infoLabel: { color: "#a08060", fontSize: 12, marginTop: 6 },
-  infoValue: { color: "#f5e6c8", fontSize: 14 },
+  root:     { flex: 1, backgroundColor: C.bg },
+  section:  { color: C.gold, fontSize: 12, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", marginBottom: 8, marginLeft: 4 },
+  group:    { backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.line, overflow: "hidden" },
+  row:      { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  rowIcon:  { width: 32, height: 32, borderRadius: 8, backgroundColor: C.goldSoft, alignItems: "center", justifyContent: "center" },
+  rowLabel: { flex: 1, color: C.ink, fontSize: 15 },
+  rowValue: { color: C.muted, fontSize: 13, flexShrink: 1, textAlign: "right" },
+  sep:      { height: 1, backgroundColor: C.line, marginLeft: 58 },
 });

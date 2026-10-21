@@ -1,57 +1,82 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { FlatList, Text, TouchableOpacity, View, StyleSheet } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api } from "../../services/api";
-import { useAuth } from "../../store/auth";
-import { useRouter } from "expo-router";
+import { ScreenHeader } from "../../components/ScreenHeader";
+import { C } from "../../constants/theme";
 
-type Bookmark = { id?: number; vol: number; page: number };
+type Bookmark = { vol: number; page: number };
 
 export default function BookmarksScreen() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const { token } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (token) {
-      api.getBookmarks().then(setBookmarks).catch(() => {});
-    } else {
+  useFocusEffect(
+    useCallback(() => {
       AsyncStorage.getItem("local_bookmarks").then((raw) => {
-        if (raw) setBookmarks(JSON.parse(raw));
+        const list: Bookmark[] = raw ? JSON.parse(raw) : [];
+        setBookmarks(list.sort((a, b) => a.vol - b.vol || a.page - b.page));
       });
-    }
-  }, [token]);
+    }, [])
+  );
 
-  const goTo = (b: Bookmark) => router.push(`/?vol=${b.vol}&page=${b.page}`);
+  const remove = async (b: Bookmark) => {
+    const next = bookmarks.filter((x) => !(x.vol === b.vol && x.page === b.page));
+    setBookmarks(next);
+    await AsyncStorage.setItem("local_bookmarks", JSON.stringify(next));
+  };
+
+  const open = (b: Bookmark) =>
+    router.navigate({ pathname: "/", params: { vol: String(b.vol), page: String(b.page) } });
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Bookmarks</Text>
+    <View style={styles.root}>
+      <ScreenHeader title="Bookmarks" subtitle={`${bookmarks.length} saved page${bookmarks.length === 1 ? "" : "s"}`} />
       {bookmarks.length === 0 ? (
-        <Text style={styles.empty}>No bookmarks yet. Tap 🔖 while reading to save a page.</Text>
+        <View style={styles.empty}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="bookmark-outline" size={34} color={C.gold} />
+          </View>
+          <Text style={styles.emptyTitle}>No bookmarks yet</Text>
+          <Text style={styles.emptyText}>Tap the bookmark icon at the top of the reader to save a page.</Text>
+        </View>
       ) : (
         <FlatList
           data={bookmarks}
-          keyExtractor={(b, i) => String(b.id ?? i)}
+          contentContainerStyle={{ padding: 16, gap: 10 }}
+          keyExtractor={(b) => `${b.vol}-${b.page}`}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.row} onPress={() => goTo(item)}>
-              <Text style={styles.text}>Vol {item.vol} · Page {item.page}</Text>
+            <TouchableOpacity style={styles.card} onPress={() => open(item)} activeOpacity={0.75}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.vol}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>Volume {item.vol}</Text>
+                <Text style={styles.cardSub}>Page {item.page}</Text>
+              </View>
+              <TouchableOpacity onPress={() => remove(item)} hitSlop={10} style={styles.del}>
+                <Ionicons name="trash-outline" size={18} color={C.muted} />
+              </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={18} color={C.gold} />
             </TouchableOpacity>
           )}
         />
-      )}
-      {!token && (
-        <Text style={styles.hint}>Sign in from Settings to sync bookmarks across devices.</Text>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a0a00", padding: 16 },
-  title:     { color: "#c8a96e", fontSize: 22, marginBottom: 16, textAlign: "center", marginTop: 40 },
-  empty:     { color: "#a08060", textAlign: "center", marginTop: 40, lineHeight: 24 },
-  row:       { padding: 14, borderBottomWidth: 1, borderColor: "#3a2000" },
-  text:      { color: "#f5e6c8", fontSize: 16 },
-  hint:      { color: "#a08060", fontSize: 12, textAlign: "center", marginTop: 20, lineHeight: 18 },
+  root:       { flex: 1, backgroundColor: C.bg },
+  empty:      { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+  emptyIcon:  { width: 72, height: 72, borderRadius: 36, backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  emptyTitle: { color: C.ink, fontSize: 17, fontWeight: "600", marginBottom: 6 },
+  emptyText:  { color: C.muted, fontSize: 14, textAlign: "center", lineHeight: 21 },
+  card:       { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.panel, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.line },
+  badge:      { width: 40, height: 40, borderRadius: 10, backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, alignItems: "center", justifyContent: "center" },
+  badgeText:  { color: C.gold, fontSize: 16, fontWeight: "700" },
+  cardTitle:  { color: C.ink, fontSize: 15, fontWeight: "600" },
+  cardSub:    { color: C.muted, fontSize: 13, marginTop: 2 },
+  del:        { padding: 4, marginRight: 4 },
 });
