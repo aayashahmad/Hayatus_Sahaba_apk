@@ -27,6 +27,9 @@ export default function ReaderScreen() {
   const [error, setError] = useState(false);
   const [showScan, setShowScan] = useState(false);
   const [scanLoading, setScanLoading] = useState(true);
+  const [scanFailed, setScanFailed] = useState(false);
+  const [scanAttempt, setScanAttempt] = useState(0);
+  const scanLoaded = useRef(false);
   const [bookmarked, setBookmarked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -54,6 +57,20 @@ export default function ReaderScreen() {
   }, [vol, page]);
 
   useEffect(() => setPageInput(String(page)), [page]);
+
+  // archive.org can be very slow or down; give up after 30s so the user isn't stuck on a spinner.
+  useEffect(() => {
+    if (!showScan) return;
+    setScanLoading(true);
+    setScanFailed(false);
+    scanLoaded.current = false;
+    const t = setTimeout(() => {
+      if (scanLoaded.current) return;
+      setScanLoading(false);
+      setScanFailed(true);
+    }, 30000);
+    return () => clearTimeout(t);
+  }, [showScan, vol, page, scanAttempt]);
 
   useEffect(() => {
     AsyncStorage.getItem("local_bookmarks").then((raw) => {
@@ -133,14 +150,26 @@ export default function ReaderScreen() {
 
       {/* Content */}
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        {showScan ? (
+        {showScan && scanFailed ? (
+          <View style={styles.center}>
+            <Ionicons name="cloud-offline-outline" size={36} color={C.muted} />
+            <Text style={styles.muted}>Couldn't load the original page.</Text>
+            <Text style={[styles.muted, { fontSize: 12, textAlign: "center" }]}>The scans come from archive.org, which may be slow or down right now.</Text>
+            <TouchableOpacity style={[styles.chip, styles.chipOn, { marginTop: 6 }]} onPress={() => setScanAttempt((n) => n + 1)}>
+              <Ionicons name="refresh" size={15} color={C.gold} />
+              <Text style={[styles.chipText, styles.chipTextOn]}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : showScan ? (
           <View style={styles.scanWrap}>
             {scanLoading && <ActivityIndicator color={C.gold} style={StyleSheet.absoluteFill} />}
             <Image
+              key={`${vol}-${page}-${scanAttempt}`}
               source={{ uri: scanUrl(vol, page) }}
               style={styles.scan}
               resizeMode="contain"
-              onLoadEnd={() => setScanLoading(false)}
+              onLoad={() => { scanLoaded.current = true; setScanLoading(false); }}
+              onError={() => { setScanLoading(false); setScanFailed(true); }}
             />
           </View>
         ) : error ? (
