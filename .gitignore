@@ -9,3 +9,4 @@ dist/
 *.mobileprovision
 *.orig.*
 .DS_Store
+release/
