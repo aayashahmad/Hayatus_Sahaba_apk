@@ -1,45 +1,70 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import TrackPlayer, { State, usePlaybackState } from "react-native-track-player";
+import { Audio } from "expo-av";
 import { api } from "../services/api";
 import { localAudioPath } from "../services/download";
 
 type PlayerState = "idle" | "playing" | "paused";
 
 export function usePlayer(vol: number, page: number, onPageEnd?: () => void) {
-  const playback = usePlaybackState();
+  const soundRef = useRef<Audio.Sound | null>(null);
   const [state, setState] = useState<PlayerState>("idle");
-  const endHandled = useRef(false);
 
-  const state2 = playback.state === State.Playing ? "playing"
-    : playback.state === State.Paused ? "paused"
-    : "idle";
-
-  const play = useCallback(async () => {
-    endHandled.current = false;
-    // Prefer local offline file, fall back to streaming URL
-    const local = await localAudioPath(vol, page);
-    const url = local ?? api.getAudioUrl(vol, page);
-
-    await TrackPlayer.reset();
-    await TrackPlayer.add({
-      id: `${vol}-${page}`,
-      url,
-      title: `Hayatus Sahaba — Vol ${vol} · Page ${page}`,
-      artist: "Maulana Muhammad Yusuf Kandhlawi",
+  // Enable background audio
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      staysActiveInBackground: true,
+      playsInSilentModeIOS: true,
     });
-    await TrackPlayer.play();
+    return () => {
+      soundRef.current?.unloadAsync();
+    };
+  }, []);
+
+  // Unload when page changes
+  useEffect(() => {
+    soundRef.current?.unloadAsync();
+    soundRef.current = null;
+    setState("idle");
   }, [vol, page]);
 
-  const pause = useCallback(() => TrackPlayer.pause(), []);
-  const stop  = useCallback(() => TrackPlayer.stop(),  []);
+  const play = useCallback(async () => {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.playAsync();
+        setState("playing");
+        return;
+      }
 
-  // Fire onPageEnd when track finishes
-  useEffect(() => {
-    if (playback.state === State.Ended && !endHandled.current) {
-      endHandled.current = true;
-      onPageEnd?.();
+      const local = await localAudioPath(vol, page);
+      const uri = local ?? api.getAudioUrl(vol, page);
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true },
+        (status) => {
+          if (!status.isLoaded) return;
+          if (status.didJustFinish) {
+            setState("idle");
+            onPageEnd?.();
+          }
+        }
+      );
+      soundRef.current = sound;
+      setState("playing");
+    } catch (e) {
+      console.error("Audio error", e);
     }
-  }, [playback.state, onPageEnd]);
+  }, [vol, page, onPageEnd]);
 
-  return { state: state2, play, pause, stop };
+  const pause = useCallback(async () => {
+    await soundRef.current?.pauseAsync();
+    setState("paused");
+  }, []);
+
+  const stop = useCallback(async () => {
+    await soundRef.current?.stopAsync();
+    setState("idle");
+  }, []);
+
+  return { state, play, pause, stop };
 }
