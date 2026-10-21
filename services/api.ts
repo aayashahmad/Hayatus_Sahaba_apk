@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://api.hayatussahaba.com";
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://hayatus-sahaba-backend-1.onrender.com";
+const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? "https://hayatus-sahaba.vercel.app";
 
 async function authHeader() {
   const token = await AsyncStorage.getItem("token");
@@ -22,7 +23,7 @@ async function post(path: string, body: unknown) {
 }
 
 export const api = {
-  getText:        (vol: number, page: number) => get(`/api/text/${vol}/${page}`),
+  getText:        (vol: number, page: number) => fetch(`${WEB_BASE}/text/vol${vol}/${String(page).padStart(4, "0")}.json`).then(r => { if (!r.ok) throw new Error(`Text ${r.status}`); return r.json(); }),
   getAudioUrl:    (vol: number, page: number) => `${BASE}/api/audio/${vol}/${page}/mp3`,
   getTimingUrl:   (vol: number, page: number) => `${BASE}/api/audio/${vol}/${page}/timing`,
   getBookmarks:   () => get("/api/bookmarks/"),
