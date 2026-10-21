@@ -24,8 +24,7 @@ async function post(path: string, body: unknown) {
 
 export const api = {
   getText:        (vol: number, page: number) => fetch(`${WEB_BASE}/text/vol${vol}/${String(page).padStart(4, "0")}.json`).then(r => { if (!r.ok) throw new Error(`Text ${r.status}`); return r.json(); }),
-  getAudioUrl:    (vol: number, page: number) => `${BASE}/api/audio/${vol}/${page}/mp3`,
-  getTimingUrl:   (vol: number, page: number) => `${BASE}/api/audio/${vol}/${page}/timing`,
+  getAudioUrl:    (vol: number, page: number) => `${WEB_BASE}/audio/vol${vol}/${String(page).padStart(4, "0")}.mp3`,
   getBookmarks:   () => get("/api/bookmarks/"),
   addBookmark:    (vol: number, page: number) => post("/api/bookmarks/", { vol, page }),
   getProgress:    () => get("/api/progress/"),
