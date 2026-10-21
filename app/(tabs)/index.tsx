@@ -58,7 +58,7 @@ export default function ReaderScreen() {
 
   useEffect(() => setPageInput(String(page)), [page]);
 
-  // archive.org can be very slow or down; give up after 30s so the user isn't stuck on a spinner.
+  // Give up after 30s on a bad connection so the user isn't stuck on a spinner.
   useEffect(() => {
     if (!showScan) return;
     setScanLoading(true);
@@ -154,7 +154,7 @@ export default function ReaderScreen() {
           <View style={styles.center}>
             <Ionicons name="cloud-offline-outline" size={36} color={C.muted} />
             <Text style={styles.muted}>Couldn't load the original page.</Text>
-            <Text style={[styles.muted, { fontSize: 12, textAlign: "center" }]}>The scans come from archive.org, which may be slow or down right now.</Text>
+            <Text style={[styles.muted, { fontSize: 12, textAlign: "center" }]}>Check your internet connection.</Text>
             <TouchableOpacity style={[styles.chip, styles.chipOn, { marginTop: 6 }]} onPress={() => setScanAttempt((n) => n + 1)}>
               <Ionicons name="refresh" size={15} color={C.gold} />
               <Text style={[styles.chipText, styles.chipTextOn]}>Try again</Text>
