@@ -12,6 +12,7 @@ import { api } from "../../services/api";
 import { useAuth } from "../../store/auth";
 import { C, URDU_FONT, URDU_FONT_BOLD } from "../../constants/theme";
 import { VOLUMES, pageCount, scanUrl } from "../../constants/book";
+import { ZoomViewer } from "../../components/ZoomViewer";
 
 type PageData = { paragraphs: string[]; footnotes: string[] };
 
@@ -30,6 +31,7 @@ export default function ReaderScreen() {
   const [scanFailed, setScanFailed] = useState(false);
   const [scanAttempt, setScanAttempt] = useState(0);
   const scanLoaded = useRef(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -161,7 +163,7 @@ export default function ReaderScreen() {
             </TouchableOpacity>
           </View>
         ) : showScan ? (
-          <View style={styles.scanWrap}>
+          <TouchableOpacity activeOpacity={0.9} style={styles.scanWrap} onPress={() => setZoomOpen(true)}>
             {scanLoading && <ActivityIndicator color={C.gold} style={StyleSheet.absoluteFill} />}
             <Image
               key={`${vol}-${page}-${scanAttempt}`}
@@ -171,7 +173,13 @@ export default function ReaderScreen() {
               onLoad={() => { scanLoaded.current = true; setScanLoading(false); }}
               onError={() => { setScanLoading(false); setScanFailed(true); }}
             />
-          </View>
+            {!scanLoading && (
+              <View style={styles.zoomHint}>
+                <Ionicons name="expand" size={14} color={C.ink} />
+                <Text style={styles.zoomHintText}>Tap to zoom</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         ) : error ? (
           <View style={styles.center}>
             <Ionicons name="cloud-offline-outline" size={36} color={C.muted} />
@@ -198,6 +206,15 @@ export default function ReaderScreen() {
           </View>
         )}
       </ScrollView>
+
+      <ZoomViewer
+        visible={zoomOpen}
+        vol={vol}
+        page={page}
+        last={last}
+        onClose={() => setZoomOpen(false)}
+        onPage={goPage}
+      />
 
       {/* Pager */}
       <View style={styles.pager}>
@@ -262,7 +279,9 @@ const styles = StyleSheet.create({
   footnote:    { fontFamily: URDU_FONT, color: C.muted, fontSize: 13, lineHeight: 32, textAlign: "right", writingDirection: "rtl" },
 
   scanWrap:    { backgroundColor: "#fff", borderRadius: 6, borderRightWidth: 4, borderRightColor: C.gold, overflow: "hidden", justifyContent: "center" },
-  scan:        { width: "100%", aspectRatio: 0.66 },
+  scan:        { width: "100%", aspectRatio: 953 / 1348 },
+  zoomHint:    { position: "absolute", bottom: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(22,48,42,0.85)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
+  zoomHintText:{ color: C.ink, fontSize: 12 },
 
   center:      { alignItems: "center", marginTop: 60, gap: 10 },
   muted:       { color: C.muted, fontSize: 14 },

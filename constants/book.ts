@@ -11,3 +11,4 @@ export const pageCount = (vol: number) => VOLUMES.find((v) => v.id === vol)?.pag
 export const pad = (n: number) => String(n).padStart(4, "0");
 
 export const scanUrl = (vol: number, page: number) => `${WEB_BASE}/scans/vol${vol}/${pad(page)}.png`;
+export const scanUrlHd = (vol: number, page: number) => `${WEB_BASE}/scans-hd/vol${vol}/${pad(page)}.png`;
