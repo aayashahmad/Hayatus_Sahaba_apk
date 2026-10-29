@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert,
   TextInput, Image, ActivityIndicator, Keyboard,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,19 +11,28 @@ import { usePlayer } from "../../hooks/usePlayer";
 import { api } from "../../services/api";
 import { useAuth } from "../../store/auth";
 import { C, URDU_FONT, URDU_FONT_BOLD } from "../../constants/theme";
-import { VOLUMES, pageCount, scanUrl } from "../../constants/book";
+import { VOLUMES, lastPage, scanUrl } from "../../constants/book";
+import { useReading } from "../../store/reading";
 import { ZoomViewer } from "../../components/ZoomViewer";
 
 type PageData = { paragraphs: string[]; footnotes: string[] };
 
 export default function ReaderScreen() {
-  const params = useLocalSearchParams<{ vol?: string; page?: string }>();
+  const params = useLocalSearchParams<{ vol?: string; page?: string; t?: string }>();
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
 
-  const [vol, setVol] = useState(1);
-  const [page, setPage] = useState(95);
-  const [pageInput, setPageInput] = useState("95");
+  const { vol: selectedVol, pages: savedPages, selectVolume, setPage: savePage } = useReading();
+  const vol = selectedVol ?? 1;
+  const page = savedPages[vol] ?? 0;
+  const setPage = useCallback(
+    (next: number | ((p: number) => number)) => {
+      const cur = useReading.getState().pages[vol] ?? 0;
+      savePage(vol, typeof next === "function" ? next(cur) : next);
+    },
+    [vol, savePage]
+  );
+  const [pageInput, setPageInput] = useState(String(page));
   const [data, setData] = useState<PageData | null>(null);
   const [error, setError] = useState(false);
   const [showScan, setShowScan] = useState(false);
@@ -35,16 +44,24 @@ export default function ReaderScreen() {
   const [bookmarked, setBookmarked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const last = pageCount(vol);
+  // Pages with no typed text (covers, title pages) show the scan, like the web app.
+  const noText = !!data && data.paragraphs.length === 0;
+  const scanMode = showScan || noText;
+
+  const last = lastPage(vol);
   const onPageEnd = useCallback(() => setPage((p) => Math.min(p + 1, last)), [last]);
   const { state, play, pause } = usePlayer(vol, page, onPageEnd);
 
+  // Opened from a bookmark: jump there, switching volume if needed.
   useEffect(() => {
     if (params.vol && params.page) {
-      setVol(Number(params.vol));
-      setPage(Number(params.page));
+      const v = Number(params.vol);
+      savePage(v, Number(params.page));
+      selectVolume(v);
     }
-  }, [params.vol, params.page]);
+  }, [params.vol, params.page, params.t]);
+
+  useEffect(() => setShowScan(false), [vol]);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +79,7 @@ export default function ReaderScreen() {
 
   // Give up after 30s on a bad connection so the user isn't stuck on a spinner.
   useEffect(() => {
-    if (!showScan) return;
+    if (!scanMode) return;
     setScanLoading(true);
     setScanFailed(false);
     scanLoaded.current = false;
@@ -72,7 +89,7 @@ export default function ReaderScreen() {
       setScanFailed(true);
     }, 30000);
     return () => clearTimeout(t);
-  }, [showScan, vol, page, scanAttempt]);
+  }, [scanMode, vol, page, scanAttempt]);
 
   useEffect(() => {
     AsyncStorage.getItem("local_bookmarks").then((raw) => {
@@ -99,14 +116,16 @@ export default function ReaderScreen() {
     setBookmarked(!bookmarked);
   };
 
-  const goPage = (n: number) => setPage(Math.min(Math.max(1, n), last));
+  const goPage = (n: number) => setPage(Math.min(Math.max(0, n), last));
   const submitPage = () => {
     Keyboard.dismiss();
     const n = parseInt(pageInput, 10);
     if (!isNaN(n)) goPage(n);
     else setPageInput(String(page));
   };
-  const switchVol = (v: number) => { setVol(v); setPage(1); };
+  const volInfo = VOLUMES.find((v) => v.id === vol);
+
+  if (selectedVol == null) return <Redirect href="/welcome" />;
 
   return (
     <View style={styles.root}>
@@ -115,30 +134,31 @@ export default function ReaderScreen() {
         <View style={styles.titleRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Hayatus Sahaba</Text>
-            <Text style={styles.subtitle}>Maulana Muhammad Yusuf Kandhlawi (Rah)</Text>
+            <View style={styles.metaRow}>
+              <View style={styles.volPill}>
+                <Text style={styles.volPillText}>Volume {vol}</Text>
+              </View>
+              <Text style={styles.volUrdu}>{volInfo?.urdu}</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={toggleBookmark} style={styles.roundBtn} hitSlop={8}>
             <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={20} color={C.gold} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.segment}>
-          {VOLUMES.map(({ id }) => (
-            <TouchableOpacity key={id} style={[styles.segItem, vol === id && styles.segItemOn]} onPress={() => switchVol(id)}>
-              <Text style={[styles.segText, vol === id && styles.segTextOn]}>Volume {id}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         <View style={styles.toolbar}>
           <View style={styles.modeGroup}>
-            <TouchableOpacity style={[styles.chip, !showScan && styles.chipOn]} onPress={() => setShowScan(false)}>
-              <Ionicons name="reader-outline" size={15} color={!showScan ? C.gold : C.ink} />
-              <Text style={[styles.chipText, !showScan && styles.chipTextOn]}>Read</Text>
+            <TouchableOpacity
+              style={[styles.chip, !scanMode && styles.chipOn, noText && styles.disabled]}
+              disabled={noText}
+              onPress={() => setShowScan(false)}
+            >
+              <Ionicons name="reader-outline" size={15} color={!scanMode ? C.gold : C.ink} />
+              <Text style={[styles.chipText, !scanMode && styles.chipTextOn]}>Read</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.chip, showScan && styles.chipOn]} onPress={() => setShowScan(true)}>
-              <Ionicons name="image-outline" size={15} color={showScan ? C.gold : C.ink} />
-              <Text style={[styles.chipText, showScan && styles.chipTextOn]}>Original page</Text>
+            <TouchableOpacity style={[styles.chip, scanMode && styles.chipOn]} onPress={() => setShowScan(true)}>
+              <Ionicons name="image-outline" size={15} color={scanMode ? C.gold : C.ink} />
+              <Text style={[styles.chipText, scanMode && styles.chipTextOn]}>Original page</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity style={[styles.listen, state === "playing" && styles.listenOn]} onPress={state === "playing" ? pause : play}>
@@ -152,7 +172,10 @@ export default function ReaderScreen() {
 
       {/* Content */}
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        {showScan && scanFailed ? (
+        {noText && !showScan && (
+          <Text style={styles.note}>There is no typed text for this page — showing the original page.</Text>
+        )}
+        {scanMode && scanFailed ? (
           <View style={styles.center}>
             <Ionicons name="cloud-offline-outline" size={36} color={C.muted} />
             <Text style={styles.muted}>Couldn't load the original page.</Text>
@@ -162,7 +185,7 @@ export default function ReaderScreen() {
               <Text style={[styles.chipText, styles.chipTextOn]}>Try again</Text>
             </TouchableOpacity>
           </View>
-        ) : showScan ? (
+        ) : scanMode ? (
           <TouchableOpacity activeOpacity={0.9} style={styles.scanWrap} onPress={() => setZoomOpen(true)}>
             {scanLoading && <ActivityIndicator color={C.gold} style={StyleSheet.absoluteFill} />}
             <Image
@@ -218,7 +241,7 @@ export default function ReaderScreen() {
 
       {/* Pager */}
       <View style={styles.pager}>
-        <TouchableOpacity style={[styles.navBtn, page <= 1 && styles.disabled]} disabled={page <= 1} onPress={() => goPage(page - 1)}>
+        <TouchableOpacity style={[styles.navBtn, page <= 0 && styles.disabled]} disabled={page <= 0} onPress={() => goPage(page - 1)}>
           <Ionicons name="chevron-back" size={20} color={C.ink} />
           <Text style={styles.navText}>Previous</Text>
         </TouchableOpacity>
@@ -252,14 +275,12 @@ const styles = StyleSheet.create({
   header:      { paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderColor: C.line, backgroundColor: C.bg },
   titleRow:    { flexDirection: "row", alignItems: "center" },
   title:       { color: C.gold, fontSize: 22, fontWeight: "700", letterSpacing: 0.3 },
-  subtitle:    { color: C.muted, fontSize: 12, marginTop: 1 },
+  metaRow:     { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  volPill:     { backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  volPillText: { color: C.gold, fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
+  volUrdu:     { fontFamily: URDU_FONT, color: C.muted, fontSize: 13, lineHeight: 30 },
   roundBtn:    { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: C.line, backgroundColor: C.panel, alignItems: "center", justifyContent: "center" },
-
-  segment:     { flexDirection: "row", backgroundColor: C.panelDeep, borderRadius: 12, padding: 4, marginTop: 12, borderWidth: 1, borderColor: C.line },
-  segItem:     { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: "center" },
-  segItemOn:   { backgroundColor: C.panel, borderWidth: 1, borderColor: C.gold },
-  segText:     { color: C.muted, fontSize: 13, fontWeight: "600" },
-  segTextOn:   { color: C.gold },
+  note:        { color: C.muted, fontSize: 12, textAlign: "center", backgroundColor: "rgba(0,0,0,0.18)", borderRadius: 8, padding: 10, marginBottom: 10 },
 
   toolbar:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
   modeGroup:   { flexDirection: "row", gap: 8 },

@@ -28,7 +28,7 @@ export default function BookmarksScreen() {
   };
 
   const open = (b: Bookmark) =>
-    router.navigate({ pathname: "/", params: { vol: String(b.vol), page: String(b.page) } });
+    router.navigate({ pathname: "/", params: { vol: String(b.vol), page: String(b.page), t: String(Date.now()) } });
 
   return (
     <View style={styles.root}>

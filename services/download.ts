@@ -18,7 +18,7 @@ export class DownloadJob {
   async run(vol: number, onProgress?: (fraction: number) => void): Promise<boolean> {
     await FileSystem.makeDirectoryAsync(`${AUDIO_DIR}vol${vol}/`, { intermediates: true });
     const total = pageCount(vol);
-    for (let page = 1; page <= total; page++) {
+    for (let page = 0; page < total; page++) {
       if (this.cancelled) return false;
       const dest = pagePath(vol, page);
       const info = await FileSystem.getInfoAsync(dest);
@@ -36,7 +36,7 @@ export class DownloadJob {
         // Pages without narration return 404; don't keep the error body as an mp3.
         if (!res || res.status !== 200) await FileSystem.deleteAsync(dest, { idempotent: true });
       }
-      onProgress?.(page / total);
+      onProgress?.((page + 1) / total);
     }
     await FileSystem.writeAsStringAsync(`${AUDIO_DIR}vol${vol}/.complete`, "1");
     return true;

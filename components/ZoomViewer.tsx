@@ -161,7 +161,7 @@ export function ZoomViewer({ visible, vol, page, last, onClose, onPage }: Props)
 
         {/* Bottom controls */}
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-          <TouchableOpacity style={[styles.iconBtn, page <= 1 && styles.dim]} disabled={page <= 1} onPress={() => onPage(page - 1)}>
+          <TouchableOpacity style={[styles.iconBtn, page <= 0 && styles.dim]} disabled={page <= 0} onPress={() => onPage(page - 1)}>
             <Ionicons name="chevron-back" size={22} color={C.ink} />
           </TouchableOpacity>
           <View style={styles.zoomGroup}>

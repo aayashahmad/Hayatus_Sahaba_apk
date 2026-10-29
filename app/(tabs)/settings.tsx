@@ -1,7 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "../../components/ScreenHeader";
-import { C } from "../../constants/theme";
+import { useRouter } from "expo-router";
+import { C, URDU_FONT } from "../../constants/theme";
+import { VOLUMES } from "../../constants/book";
+import { useReading } from "../../store/reading";
 
 type RowProps = { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; onPress?: () => void };
 
@@ -19,10 +22,45 @@ function Row({ icon, label, value, onPress }: RowProps) {
 }
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const { vol, pages, selectVolume } = useReading();
+
+  const change = (id: number) => {
+    selectVolume(id);
+    router.navigate("/");
+  };
+
   return (
     <View style={styles.root}>
       <ScreenHeader title="Settings" />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 18 }}>
+        <View>
+          <Text style={styles.section}>Volume</Text>
+          <View style={styles.group}>
+            {VOLUMES.map(({ id, urdu, pages: count }, i) => {
+              const on = vol === id;
+              return (
+                <View key={id}>
+                  {i > 0 && <View style={styles.sep} />}
+                  <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => change(id)}>
+                    <View style={[styles.volNum, on && styles.volNumOn]}>
+                      <Text style={[styles.volNumText, on && { color: C.dark }]}>{id}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.rowLabel, on && { color: C.gold, fontWeight: "600" }]}>Volume {id}</Text>
+                      <Text style={styles.rowSub}>
+                        {pages[id] != null ? `Page ${pages[id]} of ${count - 1}` : `${count} pages`}
+                      </Text>
+                    </View>
+                    <Text style={styles.urdu}>{urdu}</Text>
+                    <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={on ? C.gold : C.muted} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
         <View>
           <Text style={styles.section}>About the book</Text>
           <View style={styles.group}>
@@ -44,7 +82,7 @@ export default function SettingsScreen() {
         <View>
           <Text style={styles.section}>App</Text>
           <View style={styles.group}>
-            <Row icon="information-circle-outline" label="Version" value="1.0.1" />
+            <Row icon="information-circle-outline" label="Version" value="1.0.2" />
           </View>
         </View>
       </ScrollView>
@@ -61,4 +99,9 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, color: C.ink, fontSize: 15 },
   rowValue: { color: C.muted, fontSize: 13, flexShrink: 1, textAlign: "right" },
   sep:      { height: 1, backgroundColor: C.line, marginLeft: 58 },
+  rowSub:   { color: C.muted, fontSize: 12, marginTop: 2 },
+  urdu:     { fontFamily: URDU_FONT, color: C.muted, fontSize: 13, lineHeight: 30, marginRight: 4 },
+  volNum:   { width: 32, height: 32, borderRadius: 8, borderWidth: 1, borderColor: C.line, backgroundColor: C.panelDeep, alignItems: "center", justifyContent: "center" },
+  volNumOn: { backgroundColor: C.gold, borderColor: C.gold },
+  volNumText: { color: C.gold, fontSize: 14, fontWeight: "700" },
 });
