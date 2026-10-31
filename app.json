@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hayatus Sahaba",
     "slug": "hayatus-sahaba",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "backgroundColor": "#16302a",
     "icon": "./assets/icon.png",

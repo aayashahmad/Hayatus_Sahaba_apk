@@ -11,7 +11,7 @@ import { usePlayer } from "../../hooks/usePlayer";
 import { api } from "../../services/api";
 import { useAuth } from "../../store/auth";
 import { C, URDU_FONT, URDU_FONT_BOLD } from "../../constants/theme";
-import { VOLUMES, lastPage, scanUrl } from "../../constants/book";
+import { VOLUMES, ayahSpans, lastPage, scanUrl } from "../../constants/book";
 import { useReading } from "../../store/reading";
 import { ZoomViewer } from "../../components/ZoomViewer";
 
@@ -216,7 +216,11 @@ export default function ReaderScreen() {
               p.startsWith("# ") ? (
                 <Text key={i} style={styles.heading}>{p.slice(2)}</Text>
               ) : (
-                <Text key={i} style={styles.paragraph}>{p}</Text>
+                <Text key={i} style={styles.paragraph}>
+                  {ayahSpans(p).map((r, k) =>
+                    r.ayah ? <Text key={k} style={styles.ayah}>{r.text}</Text> : r.text
+                  )}
+                </Text>
               )
             )}
             {data.footnotes.length > 0 && (
@@ -296,6 +300,7 @@ const styles = StyleSheet.create({
   textBox:     { backgroundColor: C.panel, borderRightWidth: 4, borderRightColor: C.gold, borderRadius: 6, paddingHorizontal: 18, paddingVertical: 14 },
   heading:     { fontFamily: URDU_FONT_BOLD, color: C.gold, fontSize: 21, lineHeight: 50, textAlign: "center", marginBottom: 6 },
   paragraph:   { fontFamily: URDU_FONT, color: C.ink, fontSize: 19, lineHeight: 48, textAlign: "right", writingDirection: "rtl", marginBottom: 8 },
+  ayah:        { color: C.gold, backgroundColor: C.goldSoft },
   footnotes:   { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderColor: C.line },
   footnote:    { fontFamily: URDU_FONT, color: C.muted, fontSize: 13, lineHeight: 32, textAlign: "right", writingDirection: "rtl" },
 

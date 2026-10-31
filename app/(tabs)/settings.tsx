@@ -82,7 +82,7 @@ export default function SettingsScreen() {
         <View>
           <Text style={styles.section}>App</Text>
           <View style={styles.group}>
-            <Row icon="information-circle-outline" label="Version" value="1.0.2" />
+            <Row icon="information-circle-outline" label="Version" value="1.0.3" />
           </View>
         </View>
       </ScrollView>
