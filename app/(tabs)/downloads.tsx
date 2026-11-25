@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { DownloadJob, deleteVolume, getDownloadedVols, partialProgress } from "../../services/download";
+import { DownloadJob, deleteVolume, getDownloadedVols, pagesToUpdate, partialProgress } from "../../services/download";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { C } from "../../constants/theme";
 import { VOLUMES } from "../../constants/book";
@@ -10,13 +10,19 @@ export default function DownloadsScreen() {
   const [downloading, setDownloading] = useState<number | null>(null);
   const [progress, setProgress] = useState<Record<number, number>>({});
   const [downloaded, setDownloaded] = useState<number[]>([]);
+  // Saved volumes whose audio changed on the site (e.g. re-recorded pages): {vol: pages to update}.
+  const [updates, setUpdates] = useState<Record<number, number>>({});
   const job = useRef<DownloadJob | null>(null);
 
   const refresh = async () => {
-    setDownloaded(await getDownloadedVols());
+    const vols = await getDownloadedVols();
+    setDownloaded(vols);
     const p: Record<number, number> = {};
     for (const { id } of VOLUMES) p[id] = await partialProgress(id);
     setProgress(p);
+    const u: Record<number, number> = {};
+    for (const vol of vols) u[vol] = await pagesToUpdate(vol);
+    setUpdates(u);
   };
 
   useEffect(() => {
@@ -29,9 +35,8 @@ export default function DownloadsScreen() {
     job.current = j;
     setDownloading(vol);
     try {
-      const done = await j.run(vol, (f) => setProgress((p) => ({ ...p, [vol]: f })));
-      if (done) setDownloaded((d) => [...new Set([...d, vol])]);
-      else refresh();
+      await j.run(vol, (f) => setProgress((p) => ({ ...p, [vol]: f })));
+      await refresh();
     } catch {
       Alert.alert("Download stopped", "Check your internet connection and try again.");
     } finally {
@@ -57,6 +62,7 @@ export default function DownloadsScreen() {
           const busy = downloading === id;
           const pct = Math.round((progress[id] ?? 0) * 100);
           const partial = !done && !busy && pct > 0;
+          const toUpdate = done ? updates[id] ?? 0 : 0;
           return (
             <View key={id} style={styles.card}>
               <View style={styles.badge}>
@@ -65,7 +71,11 @@ export default function DownloadsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Volume {id}</Text>
                 <Text style={styles.cardSub}>
-                  {busy ? `Downloading… ${pct}%` : done ? "Available offline" : partial ? `Paused at ${pct}%` : `${pages} pages`}
+                  {busy
+                    ? `Downloading… ${pct}%`
+                    : toUpdate > 0
+                      ? `Update available · ${toUpdate} pages`
+                      : done ? "Available offline" : partial ? `Paused at ${pct}%` : `${pages} pages`}
                 </Text>
                 {(busy || partial) && (
                   <View style={styles.track}>
@@ -78,6 +88,15 @@ export default function DownloadsScreen() {
                 <TouchableOpacity style={styles.cancelBtn} onPress={cancel}>
                   <Ionicons name="close" size={16} color={C.ink} />
                   <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              ) : toUpdate > 0 ? (
+                <TouchableOpacity
+                  style={[styles.btn, downloading !== null && { opacity: 0.4 }]}
+                  disabled={downloading !== null}
+                  onPress={() => start(id)}
+                >
+                  <Ionicons name="refresh" size={16} color={C.dark} />
+                  <Text style={styles.btnText}>Update</Text>
                 </TouchableOpacity>
               ) : done ? (
                 <TouchableOpacity style={styles.doneBtn} onPress={() => remove(id)}>
@@ -98,7 +117,10 @@ export default function DownloadsScreen() {
             </View>
           );
         })}
-        <Text style={styles.note}>Each volume is large. Use Wi-Fi when downloading.</Text>
+        <Text style={styles.note}>
+          Each volume is large. Use Wi-Fi when downloading. Updates download only the pages that changed; until then,
+          changed pages are streamed when you are online.
+        </Text>
       </ScrollView>
     </View>
   );

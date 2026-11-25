@@ -25,6 +25,8 @@ async function post(path: string, body: unknown) {
 export const api = {
   getText:        (vol: number, page: number) => fetch(`${WEB_BASE}/text/vol${vol}/${String(page).padStart(4, "0")}.json`).then(r => { if (!r.ok) throw new Error(`Text ${r.status}`); return r.json(); }),
   getAudioUrl:    (vol: number, page: number) => `${WEB_BASE}/audio/vol${vol}/${String(page).padStart(4, "0")}.mp3`,
+  // Fingerprint of every page's audio, written by the web repo's scripts/audio-manifest.py on each publish.
+  getAudioManifest: () => fetch(`${WEB_BASE}/audio/manifest.json`, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(`Manifest ${r.status}`); return r.json(); }),
   getBookmarks:   () => get("/api/bookmarks/"),
   addBookmark:    (vol: number, page: number) => post("/api/bookmarks/", { vol, page }),
   getProgress:    () => get("/api/progress/"),
